@@ -17,8 +17,9 @@ It allows you to "freeze" your screen, select a region with a smooth animated ov
 ## 🚀 Installation
 1.  **Clone the repository:**
     ```bash
-    mkdir -p ~/.config/quickshell
-    git clone [https://github.com/YOUR_USERNAME/HyprQuickOcr.git](https://github.com/YOUR_USERNAME/HyprQuickOcr.git) ~/.config/quickshell/HyprQuickOcr
+   mkdir -p ~/.config/quickshell
+git clone https://github.com/Ronin-CK/HyprQuickOcr.git ~/.config/quickshell/HyprQuickOcr
+
     ```
 
 
