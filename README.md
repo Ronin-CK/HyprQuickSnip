@@ -1,5 +1,4 @@
 # HyprQuickOcr
-# HyprQuickOcr
 
 A stylish, interactive OCR (Optical Character Recognition) tool for Hyprland, built with **Quickshell**. 
 
