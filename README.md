@@ -4,6 +4,12 @@ HyprQuickOcr is a lightweight, minimal OCR utility for Hyprland, built with Quic
 
 Modern, minimal UI designed to feel native on Hyprland
 
+
+https://github.com/user-attachments/assets/041aef81-a955-4c9c-8276-2322cbc23475
+
+
+
+
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
 ## 📦 Requirements
