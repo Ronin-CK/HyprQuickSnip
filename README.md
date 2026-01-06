@@ -1,8 +1,8 @@
 # HyprQuickOcr
 
-A stylish, interactive OCR (Optical Character Recognition) tool for Hyprland, built with **Quickshell**. 
+HyprQuickOcr is a lightweight, minimal OCR utility for Hyprland, built with Quickshell.
 
-It allows you to "freeze" your screen, select a region with a smooth animated overlay, and instantly copy the text within that region to your clipboard.
+Modern, minimal UI designed to feel native on Hyprland
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
@@ -26,11 +26,13 @@ sudo pacman -S grim imagemagick tesseract tesseract-data-eng wl-clipboard libnot
 yay -S quickshell-git
 ```
 
-2.  **Clone the repository:**
-    ```bash
-   mkdir -p ~/.config/quickshell
-git clone https://github.com/Ronin-CK/HyprQuickOcr.git ~/.config/quickshell/HyprQuickOcr
-    ```
+2.  **Clone the repository:** 
+   ```bash
+mkdir -p ~/.config/quickshell 
+   git clone https://github.com/Ronin-CK/HyprQuickOcr.git ~/.config/quickshell/HyprQuickOcr
+```
+
+
 
 
 ## ⚙️ Configuration (Hyprland)
