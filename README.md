@@ -1,38 +1,46 @@
 # HyprQuickSnip
 
-HyprQuickSnip is a lightweight, minimal OCR utility for Hyprland, built with Quickshell.
+A lightweight, native Wayland utility for **Optical Character Recognition (OCR)** and **Visual Search**, built with Quickshell. Designed to fit seamlessly into Hyprland with a polished, animated UI.
 
-Modern, minimal UI designed to feel native on Hyprland
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Wayland](https://img.shields.io/badge/Wayland-Native-green.svg)
+![Quickshell](https://img.shields.io/badge/Built%20With-Quickshell-cba6f7.svg)
 
-**Improvements**
+## ✨ Features
 
-– Enhanced the region selector with mouse tracking and guides
+* **⚡ Instant OCR:** Select an area to instantly copy text to your clipboard using Tesseract.
+* **🔍 Visual Search:** Send a snapshot directly to **Google Lens** to identify objects, translate text, or find shopping links.
+* **✨ Polished UI:**
+    * **Shader-based Dimming:** The unselected area dims smoothly using a fragment shader.
+    * **Spring Animations:** Selection boxes resize with fluid physics.
+    * **Smart Guides:** Crosshairs appear for precision alignment before you click.
+    * **Control Bar:** A floating "pill" menu allows you to switch modes on the fly.
+
 <details>
-  <summary>▶ 🎥 Demo </summary>
+  <summary>▶ 🎥 View Demo </summary>
   <br>
-
-
+  
 https://github.com/user-attachments/assets/aafa197b-111f-4b40-aab4-90a7b66a1ef1
-
 
 </details>
 
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
-
 ## 📦 Requirements
+
 1.  **[Quickshell](https://github.com/outfoxxed/quickshell)**
-2.  `grim`
-3.  `imagemagick`
-4.  `tesseract` (and language data, e.g., `tesseract-data-eng`)
-5.  `wl-clipboard`
-6.  `libnotify`
+2.  `grim` (Screenshot utility)
+3.  `imagemagick` (Image cropping/processing)
+4.  `tesseract` + `tesseract-data-eng` (OCR engine)
+5.  `wl-clipboard` (Clipboard management)
+6.  `curl` & `jq` (Required for the Lens upload mechanism)
+7.  `libnotify` (Desktop notifications)
 
 ## 🚀 Installation
-1. **Install Dependencies**
+
+### 1. Install System Dependencies
+**Arch Linux:**
 ```bash
 sudo pacman -S grim imagemagick tesseract tesseract-data-eng wl-clipboard curl jq libnotify xdg-utils
 ```
-
 **Install Quickshell (from AUR)**
 ```bash        
 yay -S quickshell-git
