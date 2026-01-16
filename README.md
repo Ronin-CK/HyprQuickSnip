@@ -15,6 +15,7 @@ A lightweight, native Wayland utility for **Optical Character Recognition (OCR)*
     * **Spring Animations:** Selection boxes resize with fluid physics.
     * **Smart Guides:** Crosshairs appear for precision alignment before you click.
     * **Control Bar:** A floating "pill" menu allows you to switch modes on the fly.
+* **Quickshell** doesn't stay running in the background. It just pops up when you need it, runs the OCR, and then kills itself immediately
 
 <details>
   <summary>▶ 🎥 View Demo </summary>
