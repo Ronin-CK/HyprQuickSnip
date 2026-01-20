@@ -3,196 +3,259 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import Quickshell.Widgets
 import Quickshell.Io
 
-FreezeScreen {
+PanelWindow {
     id: root
+
+    // --- Configuration ---
+    property var targetScreen: Quickshell.screens[0]
+    property var hyprlandMonitor: Hyprland.focusedMonitor
+
+    property string fullScreenshotPath
+    property string cropPath
+
+    // Defaults to "ocr" (Text Copy)
+    property string currentMode: "ocr"
+
+    screen: targetScreen
+    anchors { left: true; right: true; top: true; bottom: true }
+
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
     visible: false
 
-    property var activeScreen: null
-
-    Connections {
-        target: Hyprland
-        enabled: activeScreen === null
-
-        function onFocusedMonitorChanged() {
-            const monitor = Hyprland.focusedMonitor
-            if(!monitor) return
-
-                for (const screen of Quickshell.screens) {
-                    if (screen.name === monitor.name) {
-                        activeScreen = screen
-                    }
-                }
-        }
+    // --- 1. Background Freeze ---
+    ScreencopyView {
+        captureSource: root.targetScreen
+        anchors.fill: parent
+        z: -1
     }
 
-    targetScreen: activeScreen
-    property var hyprlandMonitor: Hyprland.focusedMonitor
-    property string tempPath
+    Component.onCompleted: {
+        const timestamp = Date.now();
+        root.fullScreenshotPath = Quickshell.cachePath("snip-full-" + timestamp + ".png");
+        root.cropPath = Quickshell.cachePath("snip-crop-" + timestamp + ".png");
 
-    // Default mode
-    property string mode: "region"
-    property var modes: ["region", "window", "screen"]
-
-    Shortcut {
-        sequence: "Escape"
-        onActivated: () => {
-            Quickshell.execDetached(["rm", tempPath])
-            Qt.quit()
-        }
+        Quickshell.execDetached(["grim", root.fullScreenshotPath]);
+        showTimer.start();
     }
 
     Timer {
         id: showTimer
         interval: 50
-        running: false
         repeat: false
         onTriggered: root.visible = true
     }
 
-    Component.onCompleted: {
-        const timestamp = Date.now()
-        const path = Quickshell.cachePath(`screenshot-${timestamp}.png`)
-        tempPath = path
-        Quickshell.execDetached(["grim", path])
-        showTimer.start()
-    }
+    // --- 2. Action Logic ---
+    Process { id: proc; onExited: Qt.quit() }
 
-    Process {
-        id: screenshotProcess
-        running: false
+    function executeAction() {
+        // Calculate Scale
+        const scale = root.hyprlandMonitor.scale;
+        const x = Math.round((selector.selectionX + root.hyprlandMonitor.x) * scale);
+        const y = Math.round((selector.selectionY + root.hyprlandMonitor.y) * scale);
+        const w = Math.round(selector.selectionWidth * scale);
+        const h = Math.round(selector.selectionHeight * scale);
 
-        onExited: () => {
-            Qt.quit()
+        // Ignore tiny accidental drags
+        if (w < 10 || h < 10) return;
+
+        root.visible = false; // Vanish immediately
+
+        var cmd = "";
+
+        if (root.currentMode === "ocr") {
+            // OCR Pipeline
+            cmd = `magick "${root.fullScreenshotPath}" -crop ${w}x${h}+${x}+${y} - | tesseract - - -l eng | wl-copy && notify-send 'OCR Complete' 'Text copied to clipboard'`;
+        } else {
+            // Lens Pipeline
+            cmd = `magick "${root.fullScreenshotPath}" -crop ${w}x${h}+${x}+${y} "${root.cropPath}" && imageLink=$(curl -sF files[]=@"${root.cropPath}" 'https://uguu.se/upload' | jq -r '.files[0].url') && xdg-open "https://lens.google.com/uploadbyurl?url=\${imageLink}"`;
         }
 
-        stdout: StdioCollector {
-            onStreamFinished: console.log(this.text)
-        }
-        stderr: StdioCollector {
-            onStreamFinished: console.log(this.text)
-        }
+        // Cleanup
+        cmd += ` && rm "${root.fullScreenshotPath}" "${root.cropPath}"`;
+
+        proc.command = ["sh", "-c", cmd];
+        proc.running = true;
     }
 
-    function saveScreenshot(x, y, width, height) {
-        const scale = hyprlandMonitor.scale
-        const scaledX = Math.round((x + root.hyprlandMonitor.x) * scale)
-        const scaledY = Math.round((y + root.hyprlandMonitor.y) * scale)
-        const scaledWidth = Math.round(width * scale)
-        const scaledHeight = Math.round(height * scale)
-
-        const picturesDir = Quickshell.env("XDG_PICTURES_DIR") || (Quickshell.env("HOME") + "/Pictures/Screenshots")
-        const now = new Date()
-        const timestamp = Qt.formatDateTime(now, "yyyy-MM-dd_hh-mm-ss")
-        const outputPath = `${picturesDir}/screenshot-${timestamp}.png`
-
-        screenshotProcess.command = ["sh", "-c",
-        `magick "${tempPath}" -crop ${scaledWidth}x${scaledHeight}+${scaledX}+${scaledY} "${outputPath}" && ` +
-        `wl-copy < "${outputPath}" && ` +
-        `rm "${tempPath}"`
-        ]
-
-        screenshotProcess.running = true
-        root.visible = false
-    }
-
-    RegionSelector {
-        visible: mode === "region"
-        id: regionSelector
+    // --- 3. Visual Selector Layer ---
+    Item {
+        id: selector
         anchors.fill: parent
-        dimOpacity: 0.6
-        borderRadius: 10.0
-        outlineThickness: 2.0
-        onRegionSelected: (x, y, width, height) => saveScreenshot(x, y, width, height)
+        z: 1
+
+        property real selectionX: 0
+        property real selectionY: 0
+        property real selectionWidth: 0
+        property real selectionHeight: 0
+        property point startPos
+        property real mouseX: 0
+        property real mouseY: 0
+
+        // Force redraw when geometry changes
+        onSelectionXChanged: guides.requestPaint()
+        onSelectionYChanged: guides.requestPaint()
+        onSelectionWidthChanged: guides.requestPaint()
+        onSelectionHeightChanged: guides.requestPaint()
+        onMouseXChanged: guides.requestPaint()
+        onMouseYChanged: guides.requestPaint()
+
+        // Dimming Background
+        ShaderEffect {
+            anchors.fill: parent
+            property vector4d selectionRect: Qt.vector4d(selector.selectionX, selector.selectionY, selector.selectionWidth, selector.selectionHeight)
+            property real dimOpacity: 0.5
+            property vector2d screenSize: Qt.vector2d(selector.width, selector.height)
+            property real borderRadius: 4.0
+            property real outlineThickness: 1.0
+            fragmentShader: Qt.resolvedUrl("dimming.frag.qsb")
+        }
+
+        // Crosshairs / Box
+        Canvas {
+            id: guides
+            anchors.fill: parent
+            onPaint: {
+                var ctx = getContext("2d");
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+
+                if (!mouseArea.pressed) {
+                    // Hover Crosshair
+                    ctx.moveTo(selector.mouseX, 0); ctx.lineTo(selector.mouseX, height);
+                    ctx.moveTo(0, selector.mouseY); ctx.lineTo(width, selector.mouseY);
+                } else {
+                    // Selection Box
+                    ctx.rect(selector.selectionX, selector.selectionY, selector.selectionWidth, selector.selectionHeight);
+                }
+                ctx.stroke();
+            }
+        }
+
+        MouseArea {
+            id: mouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.CrossCursor
+
+            onPressed: (mouse) => {
+                selector.startPos = Qt.point(mouse.x, mouse.y)
+                selector.selectionX = mouse.x
+                selector.selectionY = mouse.y
+                selector.selectionWidth = 0
+                selector.selectionHeight = 0
+            }
+
+            onPositionChanged: (mouse) => {
+                selector.mouseX = mouse.x
+                selector.mouseY = mouse.y
+
+                if (pressed) {
+                    var x = Math.min(selector.startPos.x, mouse.x)
+                    var y = Math.min(selector.startPos.y, mouse.y)
+                    var w = Math.abs(mouse.x - selector.startPos.x)
+                    var h = Math.abs(mouse.y - selector.startPos.y)
+
+                    selector.selectionX = x
+                    selector.selectionY = y
+                    selector.selectionWidth = w
+                    selector.selectionHeight = h
+                }
+            }
+
+            onReleased: root.executeAction()
+        }
     }
 
-    WindowSelector {
-        visible: mode === "window"
-        id: windowSelector
-        anchors.fill: parent
-        monitor: root.hyprlandMonitor
-        dimOpacity: 0.6
-        borderRadius: 10.0
-        outlineThickness: 2.0
-        onRegionSelected: (x, y, width, height) => saveScreenshot(x, y, width, height)
-    }
-
-    // --- SEGMENTED CONTROL UI ---
-
+    // --- 4. Subtle Control Bar (Like macOS) ---
     Rectangle {
-        id: segmentedControl
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 60
-
-        // Dimensions
-        height: 50
-        width: 300
-        radius: height / 2
-
-        // Visuals: Dark Glass Effect
-        color: Qt.rgba(0.15, 0.15, 0.15, 0.9)
-        border.color: Qt.rgba(1, 1, 1, 0.15)
+        id: controlBar
+        z: 10 // Above the mouse area
+        width: 200
+        height: 44
+        radius: 22 // Pill shape
+        color: "#AA11111b" // Semi-transparent dark
+        border.color: "#33ffffff"
         border.width: 1
 
-        // The Sliding Blue Highlight (The "Pill")
-        Rectangle {
-            id: highlight
-            height: parent.height - 8
-            width: (parent.width - 8) / root.modes.length
-            y: 4
-            radius: height / 2
-            color: "#3478F6" // System Blue
+        anchors {
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
+            bottomMargin: 60
+        }
 
-            // Calculate X position based on the current mode index
-            x: 4 + (root.modes.indexOf(root.mode) * width)
+        Row {
+            anchors.centerIn: parent
+            spacing: 8
 
-            // Smooth sliding animation
-            Behavior on x {
-                NumberAnimation {
-                    duration: 250
-                    easing.type: Easing.OutCubic
+            // OCR Button (Default)
+            Rectangle {
+                width: 90
+                height: 36
+                radius: 18
+                color: root.currentMode === "ocr" ? "#3b8eea" : "transparent" // Blue if active
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "Text (OCR)"
+                    color: "white"
+                    font.bold: root.currentMode === "ocr"
+                    font.pixelSize: 13
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.currentMode = "ocr"
+                }
+            }
+
+            // Separator
+            Rectangle {
+                width: 1
+                height: 16
+                color: "#44ffffff"
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            // Lens Button
+            Rectangle {
+                width: 90
+                height: 36
+                radius: 18
+                color: root.currentMode === "lens" ? "#3b8eea" : "transparent"
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "Search"
+                    color: "white"
+                    font.bold: root.currentMode === "lens"
+                    font.pixelSize: 13
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.currentMode = "lens"
                 }
             }
         }
+    }
 
-        // The Text Labels
-        Row {
-            anchors.fill: parent
-            anchors.margins: 4 // Match highlight margins
-
-            Repeater {
-                model: root.modes
-
-                Item {
-                    // Divide available width equally among items
-                    width: (segmentedControl.width - 8) / root.modes.length
-                    height: segmentedControl.height - 8
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            root.mode = modelData
-                            if (modelData === "screen") {
-                                saveScreenshot(0, 0, root.targetScreen.width, root.targetScreen.height)
-                            }
-                        }
-                    }
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData.charAt(0).toUpperCase() + modelData.slice(1) // Capitalize
-
-                        // White text, slightly bolder when selected
-                        color: "white"
-                        font.weight: root.mode === modelData ? Font.DemiBold : Font.Normal
-                        font.pixelSize: 14
-                    }
-                }
-            }
+    // --- 5. Escape Hatch ---
+    Shortcut {
+        sequence: "Escape"
+        onActivated: () => {
+            Quickshell.execDetached(["rm", root.fullScreenshotPath]);
+            Qt.quit();
         }
     }
 }
