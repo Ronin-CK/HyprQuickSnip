@@ -57,4 +57,19 @@ mkdir -p ~/.config/quickshell
 ## ⚙️ Configuration (Hyprland)
 Add this to `hyprland.conf`:
 ```ini
-bind = Super+Shift, T, exec, quickshell -c HyprQuickSnip -n
+bind = Super Shift, T, exec, quickshell -c HyprQuickSnip -n
+```
+
+## ⚡️ Troubleshooting
+
+### Selection area is offset/shifted
+
+**Symptom:** When you capture an area, the resulting image is shifted to the left or in the wrong position.
+
+**Cause:** This happens when Qt scaling environment variables (like `QT_SCALE_FACTOR` or `QT_AUTO_SCREEN_SCALE_FACTOR`) conflict with Hyprland's native scaling.
+
+**Solution:** Disable Qt scaling when launching the tool. Update your keybinding in `hyprland.conf`:
+
+```bash
+bind = SUPER SHIFT, T, exec, env QT_SCALE_FACTOR=1 QT_AUTO_SCREEN_SCALE_FACTOR=0 quickshell -c HyprQuickSnip -n
+```
