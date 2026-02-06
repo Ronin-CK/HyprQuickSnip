@@ -1,75 +1,55 @@
 # HyprQuickSnip
 
-A lightweight, native Wayland utility for **Optical Character Recognition (OCR)** and **Visual Search**, built with Quickshell. Designed to fit seamlessly into Hyprland with a polished, animated UI.
+A Wayland utility for OCR and Google Lens search, built for Hyprland using Quickshell. It's meant to be fast, minimal, and stay out of your way.
 
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
-![Wayland](https://img.shields.io/badge/Wayland-Native-green.svg)
-![Quickshell](https://img.shields.io/badge/Built%20With-Quickshell-cba6f7.svg)
+## What it does
 
-## ✨ Features
+* **OCR**: Drag a box, get the text in your clipboard. It uses Tesseract under the hood and cleans up the whitespace so you don't get 20 weird newlines.
+* **Google Lens**: Uploads a cropped region to Lens. Since Lens doesn't have a public API, it fakes a multipart form POST by injecting a base64'd JPEG into a temporary HTML file and opening it. It's faster than using an image host.
+* **UI**: Uses fragment shaders for background dimming and spring physics for the selection box. It looks nice but doesn't eat your CPU.
+* **Lifecycle**: Quickshell only runs while you're selecting. Once the action is done, it kills itself.
 
-* **⚡ Instant OCR:** Select an area to instantly copy text to your clipboard using Tesseract.
-* **🔍 Visual Search:** Send a snapshot directly to **Google Lens** to identify objects, translate text, or find shopping links.
-* **✨ Polished UI:**
-    * **Shader-based Dimming:** The unselected area dims smoothly using a fragment shader.
-    * **Spring Animations:** Selection boxes resize with fluid physics.
-    * **Smart Guides:** Crosshairs appear for precision alignment before you click.
-    * **Control Bar:** A floating "pill" menu allows you to switch modes on the fly.
-* **Quickshell** doesn't stay running in the background. It just pops up when you need it, runs the OCR, and then kills itself immediately
+## Demo
 
- 🎥 Demo 
-  
-  
-https://github.com/user-attachments/assets/aafa197b-111f-4b40-aab4-90a7b66a1ef1
+<details>
+<summary>Click to view demo</summary>
+<video>src="https://github.com/user-attachments/assets/fb451e91-b39c-4a63-b9ed-f6064a765c8f" controls width="100%"
+</video>
+</details>
 
+## Shortcuts
 
-## 📦 Requirements
+* `Tab`: Toggle modes (OCR / Lens)
+* `t`: Switch to OCR
+* `g`: Switch to Lens
+* `Escape`: Quit (cleans up temp files)
+* `Left Mouse`: Select region
 
-1.  **[Quickshell](https://github.com/outfoxxed/quickshell)**
-2.  `grim` (Screenshot utility)
-3.  `imagemagick` (Image cropping/processing)
-4.  `tesseract` + `tesseract-data-eng` (OCR engine)
-5.  `wl-clipboard` (Clipboard management)
-6.  `curl` & `jq` (Required for the Lens upload mechanism)
-7.  `libnotify` (Desktop notifications)
+## Setup
 
-## 🚀 Installation
+You'll need `quickshell`, `grim`, `imagemagick`, `tesseract` (with English data), `wl-clipboard`, `curl`, and `libnotify`.
 
-### 1. Install System Dependencies
-**Arch Linux:**
+On Arch:
 ```bash
-sudo pacman -S grim imagemagick tesseract tesseract-data-eng wl-clipboard curl jq libnotify xdg-utils
-```
-**Install Quickshell (from AUR)**
-```bash        
+sudo pacman -S grim imagemagick tesseract tesseract-data-eng wl-clipboard curl libnotify xdg-utils
+# Get quickshell from AUR
 yay -S quickshell-git
 ```
 
-2.  **Clone the repository:** 
-   ```bash
-mkdir -p ~/.config/quickshell 
-   git clone https://github.com/Ronin-CK/HyprQuickSnip.git ~/.config/quickshell/HyprQuickSnip
-```
-
-
-
-
-## ⚙️ Configuration (Hyprland)
-Add this to `hyprland.conf`:
-```ini
-bind = Super Shift, T, exec, quickshell -c HyprQuickSnip -n
-```
-
-## ⚡️ Troubleshooting
-
-### Selection area is offset/shifted
-
-**Symptom:** When you capture an area, the resulting image is shifted to the left or in the wrong position.
-
-**Cause:** This happens when Qt scaling environment variables (like `QT_SCALE_FACTOR` or `QT_AUTO_SCREEN_SCALE_FACTOR`) conflict with Hyprland's native scaling.
-
-**Solution:** Disable Qt scaling when launching the tool. Update your keybinding in `hyprland.conf`:
-
+Clone it into your config:
 ```bash
-bind = SUPER SHIFT, T, exec, env QT_SCALE_FACTOR=1 QT_AUTO_SCREEN_SCALE_FACTOR=0 quickshell -c HyprQuickSnip -n
+mkdir -p ~/.config/quickshell 
+git clone https://github.com/Ronin-CK/HyprQuickSnip.git ~/.config/quickshell/HyprQuickSnip
+```
+
+## Hyprland Config
+
+Add a bind to launch it:
+```ini
+bind = $mainMod SHIFT, T, exec, quickshell -c HyprQuickSnip -n
+```
+
+**Note on Scaling**: If the selection area looks shifted or wrong, it's probably Qt scaling fighting with Hyprland. You can force it to 1 like this:
+```bash
+bind = $mainMod SHIFT, T, exec, env QT_SCALE_FACTOR=1 QT_AUTO_SCREEN_SCALE_FACTOR=0 quickshell -c HyprQuickSnip -n
 ```
