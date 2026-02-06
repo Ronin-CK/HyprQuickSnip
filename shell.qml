@@ -9,13 +9,10 @@ import Quickshell.Wayland
 PanelWindow {
     id: root
 
-    // --- Inputs & Monitor ---
     property var targetScreen: Quickshell.screens[0]
     property var monitor: Hyprland.focusedMonitor
     property var modes: ["ocr", "lens"]
     property string currentMode: "ocr"
-    // --- Temporary Files ---
-    // We clean these up after usage or on escape
     property string fullScreenshot: ""
     property string cropJpg: ""
     property string lensHtml: ""
@@ -33,17 +30,11 @@ PanelWindow {
         root.visible = false;
         let cmd = "";
         if (root.currentMode === "ocr") {
-            // This pipeline is a bit of a beast:
-            // 1. Crop the region
-            // 2. Tesseract for OCR
-            // 3. AWK to normalize whitespace (Tesseract can be weird with line breaks)
-            // 4. SED for final cleanup before clipboard
+            // Tesseract OCR pipeline with whitespace normalization
             const ocrPipeline = [`magick "${root.fullScreenshot}" -crop ${w}x${h}+${x}+${y} -`, `tesseract - - -l eng`, `awk 'BEGIN{RS=""; FS="\\n"; ORS="\\n\\n"} {for(i=1;i<=NF;i++){printf "%s",$i; if(i<NF)printf " "} printf "\\n"}'`, `sed 's/  */ /g; s/[[:space:]]*$//'`, `wl-copy`].join(" | ");
             cmd = `${ocrPipeline} && notify-send 'OCR Complete' 'Text copied to clipboard'`;
         } else {
-            // Google Lens doesn't have a simple "upload a file" API anymore.
-            // We have to fake a multipart form submisson via a local HTML file.
-            // We use a base64'd JPEG to avoid some browser security/path issues.
+            // Fake multipart form submission via local HTML with base64 image
             const buildHtml = [`echo '<html><body style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#111;color:#fff;font-family:system-ui"><p>Searching with Google Lens…</p><form id="f" method="POST" enctype="multipart/form-data" action="https://lens.google.com/v3/upload"></form><script>'`, `echo "var b=atob('$B64');"`, `echo 'var a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);var d=new DataTransfer();d.items.add(new File([a],"i.jpg",{type:"image/jpeg"}));var inp=document.createElement("input");inp.type="file";inp.name="encoded_image";inp.files=d.files;document.getElementById("f").appendChild(inp);document.getElementById("f").submit();'`, `echo '</script></body></html>'`].join(" ; ");
             cmd = [`magick "${root.fullScreenshot}" -crop ${w}x${h}+${x}+${y} -resize '1000x1000>' -strip -quality 85 "${root.cropJpg}"`, `B64=$(base64 -w0 "${root.cropJpg}")`, `{ ${buildHtml} ; } > "${root.lensHtml}"`, `xdg-open "${root.lensHtml}"`].join(" && ");
         }
@@ -63,7 +54,6 @@ PanelWindow {
         root.fullScreenshot = Quickshell.cachePath(`snip-full-${ts}.png`);
         root.cropJpg = Quickshell.cachePath(`snip-crop-${ts}.jpg`);
         root.lensHtml = Quickshell.cachePath(`snip-lens-${ts}.html`);
-        // We capture BEFORE showing the window to avoid catching ourselves
         grimProc.running = true;
     }
 
@@ -74,7 +64,6 @@ PanelWindow {
         bottom: true
     }
 
-    // Freeze the screen so it doesn't move while selecting
     ScreencopyView {
         id: screenCopy
 
@@ -83,7 +72,6 @@ PanelWindow {
         z: -1
     }
 
-    // Capture the desktop state
     Process {
         id: grimProc
 
@@ -98,7 +86,6 @@ PanelWindow {
         }
     }
 
-    // The heavy lifter for actions
     Process {
         id: proc
 
@@ -110,7 +97,6 @@ PanelWindow {
         }
     }
 
-    // --- 4. Visual Selector Layer ---
     Item {
         id: selector
 
@@ -193,7 +179,6 @@ PanelWindow {
 
     }
 
-    // Floating switcher at the bottom
     Rectangle {
         id: controlBar
 
@@ -285,7 +270,6 @@ PanelWindow {
 
     }
 
-    // Shortcuts
     Shortcut {
         sequence: "Escape"
         onActivated: () => {
@@ -312,7 +296,6 @@ PanelWindow {
         onActivated: root.currentMode = "lens"
     }
 
-    // --- 7. Global Mouse Tracker ---
     Item {
         anchors.fill: parent
         z: 999
